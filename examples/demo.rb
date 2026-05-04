@@ -1,4 +1,4 @@
-require_relative "../lib/smo_scottish_lidar"
+require "smo_scottish_lidar"
 
 # -----------------------------------------------------------------------------
 # 1. List Phase 1 DSM files for grid square NS

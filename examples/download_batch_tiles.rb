@@ -1,4 +1,4 @@
-require_relative "../lib/smo_scottish_lidar"
+require "smo_scottish_lidar"
 
 # Batch download tiles with flexible filtering.
 # Adjust the options below to match what you need.

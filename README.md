@@ -29,14 +29,6 @@ Files are organised by OS National Grid square (e.g. NS, NT, NO, NN) and are fre
 
 ## Installation
 
-**Option A. Use directly without installing (recommended for ICM):**
-
-```ruby
-require_relative "/path/to/smo_scottish_lidar/lib/smo_scottish_lidar"
-```
-
-**Option B. Install from RubyGems:**
-
 ```sh
 gem install smo_scottish_lidar
 ```

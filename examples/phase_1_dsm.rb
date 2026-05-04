@@ -1,4 +1,4 @@
-require_relative "../lib/smo_scottish_lidar"
+require "smo_scottish_lidar"
 
 # Phase 1 DSM - Digital Surface Model
 # Grid square filter: change to nil to list all, or e.g. "NS", "NT", "NO"

@@ -1,4 +1,4 @@
-require_relative "../lib/smo_scottish_lidar"
+require "smo_scottish_lidar"
 
 # Download a single specific tile by filename.
 # Change these three values to what you need.

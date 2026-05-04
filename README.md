@@ -11,6 +11,14 @@ Developed by **Sebastian Madrid Ontiveros** to support the hydraulic modelling c
 
 No AWS CLI. No credentials. No dependencies. Uses only Ruby stdlib (`net/http`, `uri`, `fileutils`). Compatible with the InfoWorks ICM embedded Ruby environment.
 
+<p align="center">
+  <a href="https://buymeacoffee.com/smadrid">
+    <img src="https://raw.githubusercontent.com/Sebasmadridmx/SMO-WGS84-TO-BNG/main/temp_png/buymecoffeeqr.png" width="130" alt="Buy Me a Coffee QR code">
+  </a>
+  <br/>
+  <a href="https://buymeacoffee.com/smadrid">buymeacoffee.com/smadrid</a>
+</p>
+
 ---
 
 ## What is this data?
@@ -259,9 +267,13 @@ Access: public, no AWS account or credentials required.
 
 If this gem saves you time on a project, consider buying me a coffee.
 
-[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support%20this%20work-FFDD00?style=flat&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/smadrid)
-
-`buymeacoffee.com/smadrid`
+<p align="center">
+  <a href="https://buymeacoffee.com/smadrid">
+    <img src="https://raw.githubusercontent.com/Sebasmadridmx/SMO-WGS84-TO-BNG/main/temp_png/buymecoffeeqr.png" width="130" alt="Buy Me a Coffee QR code">
+  </a>
+  <br/>
+  <a href="https://buymeacoffee.com/smadrid">buymeacoffee.com/smadrid</a>
+</p>
 
 ---
 

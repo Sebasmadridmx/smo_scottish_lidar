@@ -1,29 +1,38 @@
 # smo_scottish_lidar
 
-A pure Ruby gem for listing and downloading Scottish Public Sector LiDAR data from the [Registry of Open Data on AWS](https://registry.opendata.aws/scottish-lidar/). Built by Sebastian Madrid Ontiveros to support hydraulic modellers in Scotland working on 1D-2D flood risk assessments and model build workflows.
+[![Gem Version](https://img.shields.io/badge/gem-v0.1.0-1D9E75)](https://rubygems.org/gems/smo_scottish_lidar)
+[![Ruby](https://img.shields.io/badge/ruby-%3E%3D%202.7-CC342D)](https://www.ruby-lang.org)
+[![License: MIT](https://img.shields.io/badge/license-MIT-0F6E56)](LICENSE.txt)
+[![Dependencies](https://img.shields.io/badge/dependencies-zero-085041)](smo_scottish_lidar.gemspec)
 
-No external dependencies. No AWS CLI. No credentials. Uses only Ruby stdlib (`net/http`, `uri`, `fileutils`). Compatible with InfoWorks ICM 2027 embedded Ruby.
+A pure Ruby gem for listing and downloading Scottish Public Sector LiDAR data from the [Registry of Open Data on AWS](https://registry.opendata.aws/scottish-lidar/).
+
+Developed by **Sebastian Madrid Ontiveros** to support the hydraulic modelling community in Scotland. Whether you are building 1D-2D flood inundation models, defining subcatchments, or preparing terrain inputs for InfoWorks ICM, this gem takes the friction out of getting LiDAR data onto your machine.
+
+No AWS CLI. No credentials. No dependencies. Uses only Ruby stdlib (`net/http`, `uri`, `fileutils`). Compatible with the InfoWorks ICM embedded Ruby environment.
 
 ---
 
 ## What is this data?
 
-The Scottish Government has made LiDAR survey data publicly available through an S3 bucket (`srsp-open-data`). The dataset covers most of Scotland across five survey phases plus a dedicated Outer Hebrides survey. Each phase includes:
+The Scottish Government publishes LiDAR survey data as open data through an S3 bucket (`srsp-open-data`). Coverage spans most of Scotland across five survey phases, plus a dedicated Outer Hebrides survey. Each phase includes three dataset types:
 
-- **DSM** - Digital Surface Model (includes buildings, trees, structures)
-- **DTM** - Digital Terrain Model (bare earth, vegetation removed)
-- **LAZ** - Raw LiDAR point cloud in compressed LAS format
+| Type | Description |
+|------|-------------|
+| **DSM** | Digital Surface Model. Includes buildings, trees, and structures. Used for overland flow modelling. |
+| **DTM** | Digital Terrain Model. Bare earth, vegetation removed. Ground surface for 2D mesh generation. |
+| **LAZ** | Compressed LiDAR point cloud. Raw survey returns for processing in specialist software. |
 
-Files are organised by OS National Grid square (e.g. NS, NT, NO, NN) and are free to download.
+Files are organised by OS National Grid square (e.g. `NS`, `NT`, `NO`, `NN`) and are free to access.
 
-| Phase | Area covered |
-|---|---|
-| phase-1 | Central Scotland |
-| phase-2 | South and East Scotland |
-| phase-3 | North and West Scotland |
-| phase-4 | Additional coverage |
-| phase-5 | Latest survey phase |
-| outer-hebrides | Western Isles (25cm and 50cm resolution) |
+| Phase | Coverage |
+|-------|----------|
+| `phase-1` | Central Scotland |
+| `phase-2` | South and East Scotland |
+| `phase-3` | North and West Scotland |
+| `phase-4` | Additional coverage |
+| `phase-5` | Latest survey phase |
+| `outer-hebrides` | Western Isles. Available at 25 cm and 50 cm resolution. |
 
 ---
 
@@ -33,8 +42,10 @@ Files are organised by OS National Grid square (e.g. NS, NT, NO, NN) and are fre
 gem install smo_scottish_lidar
 ```
 
+Or add to your Gemfile:
+
 ```ruby
-require "smo_scottish_lidar"
+gem "smo_scottish_lidar"
 ```
 
 ---
@@ -44,21 +55,53 @@ require "smo_scottish_lidar"
 ```ruby
 require "smo_scottish_lidar"
 
-# List all Phase 1 DSM tiles in the NS grid square
+# See what Phase 1 DSM tiles are available in the NS grid square
 lister = SmoScottishLidar::Lister.new
 lister.summary("phase-1", "dsm", grid_square: "NS")
 
-# Download a single tile
+# Download all Phase 1 DTM tiles for the NS grid square
 downloader = SmoScottishLidar::Downloader.new
+downloader.download("phase-1", "dtm",
+  destination: "/projects/my_catchment/lidar/dtm",
+  grid_square: "NS"
+)
+
+# Download a single known tile
 downloader.download_file("phase-1", "dsm", "NS56_1M_DSM_PHASE1.tif",
   destination: "/tmp/lidar"
 )
+```
 
-# Batch download all NS tiles for Phase 1 DSM
-downloader.download("phase-1", "dsm",
-  destination: "/tmp/lidar/phase-1/dsm",
+---
+
+## Typical hydraulic modelling workflow
+
+The pattern below covers the full cycle from discovery to download, including safe resume if the connection drops.
+
+```ruby
+require "smo_scottish_lidar"
+
+lister     = SmoScottishLidar::Lister.new
+downloader = SmoScottishLidar::Downloader.new(verbose: true)
+
+# Step 1. Check what is available for your catchment
+lister.summary("phase-1", "dtm", grid_square: "NS")
+
+# Step 2. Dry run to confirm file count and total size before committing
+downloader.download("phase-1", "dtm",
+  destination: "/projects/my_catchment/lidar/dtm",
+  grid_square: "NS",
+  dry_run:     true
+)
+
+# Step 3. Download for real
+downloader.download("phase-1", "dtm",
+  destination: "/projects/my_catchment/lidar/dtm",
   grid_square: "NS"
 )
+
+# Step 4. If the download is interrupted, re-run step 3.
+# Files already on disk at the correct size are skipped automatically.
 ```
 
 ---
@@ -67,7 +110,7 @@ downloader.download("phase-1", "dsm",
 
 ### `SmoScottishLidar::Lister`
 
-Lists available files from the S3 bucket. All filtering is done client-side after fetching the S3 listing.
+Lists available files from the S3 bucket. Filtering by grid square is applied client-side after the full listing is fetched.
 
 ```ruby
 lister = SmoScottishLidar::Lister.new(verbose: false)
@@ -75,18 +118,18 @@ lister = SmoScottishLidar::Lister.new(verbose: false)
 
 #### `lister.list(phase, type, grid_square: nil, resolution: nil)`
 
-Returns an `Array<Hash>` of matching files. Each hash contains:
+Returns an `Array<Hash>` of matching files.
 
 | Key | Type | Description |
-|---|---|---|
+|-----|------|-------------|
 | `:key` | String | Full S3 object key |
-| `:filename` | String | Bare filename (e.g. `NS56_1M_DSM_PHASE1.tif`) |
+| `:filename` | String | Bare filename, e.g. `NS56_1M_DSM_PHASE1.tif` |
 | `:size` | Integer | File size in bytes |
 | `:last_modified` | String | ISO 8601 timestamp |
 
 ```ruby
 files = lister.list("phase-1", "dsm", grid_square: "NS")
-files.each { |f| puts "#{f[:filename]}  #{f[:size]} bytes" }
+files.each { |f| puts "#{f[:filename]}  (#{f[:size]} bytes)" }
 ```
 
 #### `lister.summary(phase, type, grid_square: nil, resolution: nil)`
@@ -102,33 +145,33 @@ lister.summary("outer-hebrides", "dsm", resolution: "50cm")
 
 ### `SmoScottishLidar::Downloader`
 
-Downloads files from the S3 bucket. Streams in chunks to avoid loading large files into memory.
+Downloads files from the S3 bucket. Responses are streamed in chunks so large files never load fully into memory.
 
 ```ruby
 downloader = SmoScottishLidar::Downloader.new(verbose: false)
 ```
 
-#### `downloader.download(phase, type, destination:, ...)`
+#### `downloader.download(phase, type, destination:, **options)`
 
-Downloads all tiles matching the given filters. Returns a summary hash `{ downloaded: [...], skipped: [...], failed: [...] }`.
+Batch download with filtering. Returns `{ downloaded: [...], skipped: [...], failed: [...] }`.
 
 ```ruby
 downloader.download(
-  "phase-1", "dsm",
-  destination:   "/tmp/lidar/phase-1/dsm",
-  grid_square:   "NS",          # optional. nil downloads everything
-  skip_existing: true,          # skip files already on disk at the correct size
-  dry_run:       false          # set true to preview without downloading
+  "phase-3", "dsm",
+  destination:   "/data/lidar",
+  grid_square:   "NO",
+  skip_existing: true,
+  dry_run:       false
 )
 ```
 
 | Option | Default | Description |
-|---|---|---|
-| `destination:` | required | Local directory to save files into |
-| `grid_square:` | `nil` | OS grid square filter, e.g. `"NS"`, `"NT"` |
-| `resolution:` | `nil` | Outer Hebrides only, e.g. `"25cm"`, `"50cm"`, `"4ppm"`, `"16ppm"` |
-| `skip_existing:` | `true` | Skip files that already exist locally at the correct size |
-| `dry_run:` | `false` | Print what would be downloaded without downloading |
+|--------|---------|-------------|
+| `destination:` | required | Local directory to write files into |
+| `grid_square:` | `nil` | OS National Grid square filter, e.g. `"NS"`. `nil` downloads everything. |
+| `resolution:` | `nil` | Outer Hebrides only. `"25cm"`, `"50cm"`, `"4ppm"`, or `"16ppm"`. |
+| `skip_existing:` | `true` | Skip any file already on disk whose size matches S3. |
+| `dry_run:` | `false` | Print the download plan without transferring anything. |
 
 #### `downloader.download_file(phase, type, filename, destination:, resolution: nil)`
 
@@ -145,7 +188,7 @@ downloader.download_file(
 
 ### `SmoScottishLidar.prefix_for(phase, type, resolution: nil)`
 
-Returns the S3 prefix string for a given phase and type. Useful if you need to build custom queries.
+Returns the S3 prefix string for a given phase and type. Useful for building custom queries against the bucket.
 
 ```ruby
 SmoScottishLidar.prefix_for("phase-1", "dsm")
@@ -157,7 +200,7 @@ SmoScottishLidar.prefix_for("outer-hebrides", "dtm", resolution: "50cm")
 
 ---
 
-## Valid phases and types
+## Valid parameters
 
 ```ruby
 SmoScottishLidar::PHASES
@@ -169,78 +212,59 @@ SmoScottishLidar::DATASET_TYPES
 
 ### Outer Hebrides resolutions
 
-| Type | Available resolutions |
-|---|---|
-| dsm | `"25cm"` (default), `"50cm"` |
-| dtm | `"25cm"` (default), `"50cm"` |
-| laz | `"4ppm"` (default), `"16ppm"` |
+| Type | Available | Default |
+|------|-----------|---------|
+| `dsm` | `"25cm"`, `"50cm"` | `"25cm"` |
+| `dtm` | `"25cm"`, `"50cm"` | `"25cm"` |
+| `laz` | `"4ppm"`, `"16ppm"` | `"4ppm"` |
+
+Phases 1-5 do not take a `resolution:` argument.
 
 ---
 
-## Examples
+## Example scripts
 
-The `examples/` directory contains ready-to-run scripts:
+The `examples/` directory contains ready-to-run scripts covering every phase, type, and common use case.
 
-| Script | Description |
-|---|---|
-| `demo.rb` | Full walkthrough of all features |
+| Script | What it does |
+|--------|-------------|
+| `demo.rb` | Full walkthrough of all gem features |
 | `phase_1_dsm.rb` | List Phase 1 DSM tiles |
 | `phase_1_dtm.rb` | List Phase 1 DTM tiles |
 | `phase_1_laz.rb` | List Phase 1 LAZ tiles |
 | `phase_2_dsm.rb` ... | One script per phase and type |
-| `outer_hebrides_dsm.rb` | Outer Hebrides DSM |
-| `outer_hebrides_dtm.rb` | Outer Hebrides DTM |
-| `outer_hebrides_laz.rb` | Outer Hebrides LAZ |
+| `outer_hebrides_dsm.rb` | Outer Hebrides DSM at both resolutions |
+| `outer_hebrides_dtm.rb` | Outer Hebrides DTM at both resolutions |
+| `outer_hebrides_laz.rb` | Outer Hebrides LAZ at both densities |
 | `download_individual_tile.rb` | Download a single named tile |
 | `download_batch_tiles.rb` | Batch download with grid square filter |
 
-Run any script with:
-
 ```sh
+ruby examples/demo.rb
 ruby examples/phase_1_dsm.rb
 ```
 
 ---
 
-## Typical workflow for hydraulic modelling
+## Data source
 
-```ruby
-require "smo_scottish_lidar"
-
-downloader = SmoScottishLidar::Downloader.new(verbose: true)
-
-# 1. Check what is available for your catchment (e.g. NS and NS grid squares)
-lister = SmoScottishLidar::Lister.new
-lister.summary("phase-1", "dtm", grid_square: "NS")
-
-# 2. Dry run first to confirm file sizes and count
-downloader.download("phase-1", "dtm",
-  destination: "/projects/my_catchment/lidar/dtm",
-  grid_square: "NS",
-  dry_run: true
-)
-
-# 3. Download for real
-downloader.download("phase-1", "dtm",
-  destination: "/projects/my_catchment/lidar/dtm",
-  grid_square: "NS",
-  dry_run: false
-)
-
-# 4. If the download is interrupted, re-run the same command.
-# Files already on disk at the correct size are skipped automatically.
-```
+Scottish Public Sector LiDAR Dataset, Scottish Government.
+Available via [Registry of Open Data on AWS](https://registry.opendata.aws/scottish-lidar/) and the [Scottish Remote Sensing Portal](https://remotesensingdata.gov.scot).
+S3 bucket: `s3://srsp-open-data/lidar/`
+Access: public, no AWS account or credentials required.
 
 ---
 
 ## Support
 
-If this gem saves you time on a project, you can buy me a coffee.
+If this gem saves you time on a project, consider buying me a coffee.
 
-[![Buy Me a Coffee](https://github.com/Sebasmadridmx/SMO-WGS84-TO-BNG/blob/main/temp_png/buymecoffeeqr.png)](https://buymeacoffee.com/smadrid)
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-support%20this%20work-FFDD00?style=flat&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/smadrid)
+
+`buymeacoffee.com/smadrid`
 
 ---
 
 ## License
 
-MIT. Copyright (c) 2024 Sebastian Madrid Ontiveros.
+MIT. Copyright (c) 2025 Sebastian Madrid Ontiveros.

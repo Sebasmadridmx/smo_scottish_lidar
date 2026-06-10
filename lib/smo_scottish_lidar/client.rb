@@ -8,6 +8,8 @@ module SmoScottishLidar
   # Accesses the public (unsigned) srsp-open-data bucket directly over HTTPS.
   class Client
     MAX_KEYS = 1000
+    MSG_TOO_MANY_REDIRECTS = "Too many redirects"
+    MSG_NO_LOCATION_HEADER = "Redirect with no Location header"
 
     def initialize(verbose: false)
       @verbose = verbose
@@ -81,7 +83,7 @@ module SmoScottishLidar
     end
 
     def fetch_with_redirect(uri, local_path, redirects_remaining: 5, &progress_block)
-      raise "Too many redirects" if redirects_remaining.zero?
+      raise MSG_TOO_MANY_REDIRECTS if redirects_remaining.zero?
 
       Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == "https") do |http|
         request = Net::HTTP::Get.new(uri.request_uri)
@@ -99,7 +101,7 @@ module SmoScottishLidar
             end
           when 301, 302, 307, 308
             location = response["location"]
-            raise "Redirect with no Location header" unless location
+            raise MSG_NO_LOCATION_HEADER unless location
 
             log "Redirect -> #{location}"
             fetch_with_redirect(URI.parse(location), local_path,
@@ -113,7 +115,7 @@ module SmoScottishLidar
     end
 
     def get_response(uri, redirects_remaining: 5)
-      raise "Too many redirects listing #{uri}" if redirects_remaining.zero?
+      raise "#{MSG_TOO_MANY_REDIRECTS} listing #{uri}" if redirects_remaining.zero?
 
       Net::HTTP.start(uri.host, uri.port, use_ssl: uri.scheme == "https") do |http|
         response = http.get(uri.request_uri)
@@ -122,7 +124,7 @@ module SmoScottishLidar
           response
         when 301, 302, 307, 308
           location = response["location"]
-          raise "Redirect with no Location header" unless location
+          raise MSG_NO_LOCATION_HEADER unless location
 
           log "Redirect -> #{location}"
           get_response(URI.parse(location), redirects_remaining: redirects_remaining - 1)
